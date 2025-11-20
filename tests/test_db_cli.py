@@ -6,6 +6,11 @@ runner = CliRunner()
 
 
 def test_db_init_calls_initdb(monkeypatch):
+    """Ensure the CLI's `db init` command calls the packaged `init_db` function.
+
+    The test monkeypatches `init_db` to verify the CLI invokes it exactly once.
+    """
+
     called = {"count": 0}
 
     def fake_init_db():
