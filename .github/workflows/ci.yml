@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Installer les dépendances avec uv sync --frozen
+        run: uv sync --frozen
+
+      - name: Format (poe format)
+        run: uv run poe format
+
+      - name: Lint (poe lint)
+        run: uv run poe lint
+
+      - name: Tests (poe tests)
+        run: uv run poe tests
