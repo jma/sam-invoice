@@ -440,6 +440,7 @@ dependencies = [
 dev = [
     { name = "ipython" },
     { name = "poethepoet" },
+    { name = "rich" },
     { name = "typer" },
 ]
 
@@ -455,6 +456,7 @@ requires-dist = [
 dev = [
     { name = "ipython", specifier = ">=8.0.0" },
     { name = "poethepoet", specifier = ">=0.24.4" },
+    { name = "rich", specifier = ">=13.0.0" },
     { name = "typer", specifier = ">=0.9.0" },
 ]
 

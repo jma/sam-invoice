@@ -15,12 +15,9 @@ dependencies = [
 dev = [
     "ipython>=8.0.0",
     "poethepoet>=0.24.4",
-        "typer>=0.9.0",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
 ]
-
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
 
 [tool.ruff]
 line-length = 120
@@ -55,3 +52,7 @@ module-root = "."
 
 [tool.uv]
 package = true
+
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
