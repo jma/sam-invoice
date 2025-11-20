@@ -1,4 +1,4 @@
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from . import database
 from .customer import Customer
@@ -16,7 +16,8 @@ def create_customer(name: str, address: str, email: str):
 
 def get_customers():
     session = database.SessionLocal()
-    customers = session.query(Customer).all()
+    # order by name case-insensitively
+    customers = session.query(Customer).order_by(func.lower(Customer.name)).all()
     session.close()
     return customers
 
@@ -29,7 +30,8 @@ def search_customers(query: str):
     session = database.SessionLocal()
     q = (query or "").strip()
     if not q:
-        customers = session.query(Customer).all()
+        # return ordered by name
+        customers = session.query(Customer).order_by(func.lower(Customer.name)).all()
         session.close()
         return customers
 
@@ -37,21 +39,29 @@ def search_customers(query: str):
     customers = []
     try:
         id_val = int(q)
-        stmt = session.query(Customer).filter(
-            or_(
-                Customer.id == id_val,
-                Customer.name.ilike(f"%{q}%"),
-                Customer.email.ilike(f"%{q}%"),
-                Customer.address.ilike(f"%{q}%"),
+        stmt = (
+            session.query(Customer)
+            .filter(
+                or_(
+                    Customer.id == id_val,
+                    Customer.name.ilike(f"%{q}%"),
+                    Customer.email.ilike(f"%{q}%"),
+                    Customer.address.ilike(f"%{q}%"),
+                )
             )
+            .order_by(func.lower(Customer.name))
         )
     except ValueError:
-        stmt = session.query(Customer).filter(
-            or_(
-                Customer.name.ilike(f"%{q}%"),
-                Customer.email.ilike(f"%{q}%"),
-                Customer.address.ilike(f"%{q}%"),
+        stmt = (
+            session.query(Customer)
+            .filter(
+                or_(
+                    Customer.name.ilike(f"%{q}%"),
+                    Customer.email.ilike(f"%{q}%"),
+                    Customer.address.ilike(f"%{q}%"),
+                )
             )
+            .order_by(func.lower(Customer.name))
         )
 
     customers = stmt.all()

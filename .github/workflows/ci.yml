@@ -18,6 +18,23 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Install system packages for Qt (libEGL / libGL)
+        # Needed for PySide6 on Ubuntu runners to provide libEGL/libGL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1-mesa-glx \
+            libegl1-mesa \
+            libgbm1 \
+            libxcb1 \
+            libx11-xcb1 \
+            libxkbcommon0 \
+            libxkbcommon-x11-0 \
+            libxcb-xinerama0
+
+      - name: Export Qt offscreen env (headless)
+        run: echo "QT_QPA_PLATFORM=offscreen" >> $GITHUB_ENV
+
       - name: Install uv
         run: pip install uv
 
