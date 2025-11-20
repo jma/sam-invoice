@@ -1,0 +1,12 @@
+[
+  {"name": "Alice Martin", "address": "12 Rue des Vignes, Bordeaux", "email": "alice.martin@example.com"},
+  {"name": "Bruno Dupuy", "address": "5 Avenue du Château, Pauillac", "email": "bruno.dupuy@example.com"},
+  {"name": "Claire Bernard", "address": "3 Rue des Tonneaux, Lyon", "email": "claire.bernard@example.com"},
+  {"name": "David Moreau", "address": "44 Boulevard des Vins, Reims", "email": "david.moreau@example.com"},
+  {"name": "Émilie Laurent", "address": "8 Place du Terroir, Toulouse", "email": "emilie.laurent@example.com"},
+  {"name": "François Petit", "address": "21 Allée des Cépages, Dijon", "email": "francois.petit@example.com"},
+  {"name": "Georges Roche", "address": "9 Route du Domaine, Angers", "email": "georges.roche@example.com"},
+  {"name": "Hélène Fabre", "address": "16 Rue des Millésimes, Montpellier", "email": "helene.fabre@example.com"},
+  {"name": "Ivan Gauthier", "address": "2 Impasse du Chai, Nice", "email": "ivan.gauthier@example.com"},
+  {"name": "Julie Caron", "address": "30 Quai des Vignerons, Nantes", "email": "julie.caron@example.com"}
+]
