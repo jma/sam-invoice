@@ -1,6 +1,7 @@
 from sqlalchemy import CheckConstraint, Column, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 
+# Use the SQLAlchemy 2.0-style import to avoid MovedIn20Warning
 Base = declarative_base()
 
 

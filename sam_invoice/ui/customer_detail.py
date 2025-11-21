@@ -2,7 +2,35 @@ from pathlib import Path
 
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QSize, Qt, Signal
 from PySide6.QtGui import QFont, QIcon
-from PySide6.QtWidgets import QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QGraphicsOpacityEffect,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+
+def validate_customer_fields(name: str, address: str) -> tuple[bool, str | None]:
+    """Validate customer fields.
+
+    Returns (True, None) if valid, otherwise (False, error_message).
+    Requires name and address to be at least 3 characters long (after strip).
+    """
+    n = (name or "").strip()
+    a = (address or "").strip()
+    if not n:
+        return False, "Name is required"
+    if len(n) < 3:
+        return False, "Name must be at least 3 characters"
+    if not a:
+        return False, "Address is required"
+    if len(a) < 3:
+        return False, "Address must be at least 3 characters"
+    return True, None
 
 
 class ClickableLabel(QLabel):
@@ -25,6 +53,7 @@ class CustomerDetailWidget(QWidget):
 
     customer_saved = Signal(object)
     editing_changed = Signal(bool)
+    customer_deleted = Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -45,6 +74,10 @@ class CustomerDetailWidget(QWidget):
         self._name_edit = QLineEdit()
         self._name_edit.setVisible(False)
 
+        # validation label for name
+        self._name_err = QLabel("")
+        self._name_err.setStyleSheet("color: #c00; font-size:11px;")
+        self._name_err.setVisible(False)
         # Secondary details (label + editor)
         self._address = ClickableLabel("")
         self._email = ClickableLabel("")
@@ -58,39 +91,74 @@ class CustomerDetailWidget(QWidget):
         self._email_edit = QLineEdit()
         self._email_edit.setVisible(False)
 
-        # use a horizontal header area for avatar + name/details
-        header_layout = QHBoxLayout()
-        header_left = QVBoxLayout()
-        header_left.addWidget(self._avatar, alignment=Qt.AlignLeft)
-        header_layout.addLayout(header_left)
+        # placeholders to guide the user while editing
+        try:
+            self._name_edit.setPlaceholderText("e.g. John Doe")
+            self._address_edit.setPlaceholderText("e.g. 1 Wine St, Apt 2")
+            self._email_edit.setPlaceholderText("e.g. name@example.com")
+        except Exception:
+            pass
 
-        header_right = QVBoxLayout()
-        header_right.addWidget(self._name)
-        header_right.addWidget(self._name_edit)
-        header_right.addWidget(self._email)
-        header_right.addWidget(self._email_edit)
-        header_layout.addLayout(header_right)
+        # reactive validation while editing
+        self._name_edit.textChanged.connect(lambda *_: self._validate_fields())
+        self._address_edit.textChanged.connect(lambda *_: self._validate_fields())
 
-        # small action row (Edit -> Save / Cancel)
+        # two-column layout: left avatar, right fields (name, email, address)
+        # validation label for address
+        self._address_err = QLabel("")
+        self._address_err.setStyleSheet("color: #c00; font-size:11px;")
+        self._address_err.setVisible(False)
+        content_layout = QHBoxLayout()
+        # ensure the whole content is aligned to the top of the widget
+        content_layout.setAlignment(Qt.AlignTop)
+
+        left_col = QVBoxLayout()
+        # place avatar at the top and horizontally centered
+        left_col.addWidget(self._avatar, alignment=Qt.AlignHCenter | Qt.AlignTop)
+
+        right_col = QVBoxLayout()
+
+        # Name row (label + editor)
+        right_col.addWidget(self._name)
+        right_col.addWidget(self._name_edit)
+
+        # Secondary validation label then Address row followed by Email
+        right_col.addWidget(self._name_err)
+
+        # Address row (multi-line label + single-line editor)
+        right_col.addWidget(self._address)
+        right_col.addWidget(self._address_edit)
+        # validation label for address placed directly under the address editor
+        right_col.addWidget(self._address_err)
+
+        # Email row
+        right_col.addWidget(self._email)
+        right_col.addWidget(self._email_edit)
+
+        # small action row (Edit -> Save / Cancel) aligned to the right
         self._edit_btn = QPushButton("Edit")
         self._save_btn = QPushButton("Save")
+        self._delete_btn = QPushButton("Delete")
         self._cancel_btn = QPushButton("Cancel")
         self._save_btn.setVisible(False)
         self._cancel_btn.setVisible(False)
         self._edit_btn.setEnabled(False)
+        self._delete_btn.setVisible(False)
 
         actions_layout = QHBoxLayout()
         actions_layout.addStretch()
         actions_layout.addWidget(self._edit_btn)
+        actions_layout.addWidget(self._delete_btn)
         actions_layout.addWidget(self._save_btn)
         actions_layout.addWidget(self._cancel_btn)
 
+        right_col.addLayout(actions_layout)
+
+        content_layout.addLayout(left_col, 1)
+        content_layout.addLayout(right_col, 3)
+
         main_layout = QVBoxLayout(self)
-        main_layout.addLayout(header_layout)
-        main_layout.addWidget(self._address)
-        main_layout.addWidget(self._address_edit)
-        main_layout.addStretch()
-        main_layout.addLayout(actions_layout)
+        main_layout.addLayout(content_layout)
 
         # try to prepare an avatar icon from package assets
         icons_dir = Path(__file__).parent.parent / "assets" / "icons"
@@ -121,10 +189,24 @@ class CustomerDetailWidget(QWidget):
         # hide the Edit button when using in-place editing
         self._edit_btn.setVisible(False)
 
+        # ensure Save is disabled by default until fields are valid
+        try:
+            self._save_btn.setEnabled(False)
+        except Exception:
+            pass
+
         # fallback callback (in case Signals are not available or fail)
         self._saved_callback = None
         # fallback for editing state changes
         self._editing_callback = None
+        # fallback for delete
+        self._deleted_callback = None
+
+        # connect delete button handler
+        try:
+            self._delete_btn.clicked.connect(self._on_delete_clicked)
+        except Exception:
+            pass
 
     def register_saved_callback(self, cb):
         """Register a plain-Python callback as fallback for saved events.
@@ -140,6 +222,13 @@ class CustomerDetailWidget(QWidget):
         edit mode, False when leaving it.
         """
         self._editing_callback = cb
+
+    def register_deleted_callback(self, cb):
+        """Register a plain-Python callback as fallback for delete events.
+
+        The callback will be called with a single argument: the customer id (int).
+        """
+        self._deleted_callback = cb
 
     def _animate(self, start: float, end: float, duration: int = 220):
         anim = QPropertyAnimation(self._effect, b"opacity", self)
@@ -172,11 +261,21 @@ class CustomerDetailWidget(QWidget):
         self._edit_btn.setVisible(not editing)
         self._save_btn.setVisible(editing)
         self._cancel_btn.setVisible(editing)
+        # show delete only when not editing and a customer is loaded
+        try:
+            self._delete_btn.setVisible(not editing and self._current_id is not None)
+        except Exception:
+            pass
         # populate editors with current text when entering
         if editing:
             self._name_edit.setText(self._name.text())
             self._email_edit.setText(self._email.text())
             self._address_edit.setText(self._address.text())
+            # ensure validation state is applied when entering
+            try:
+                self._validate_fields()
+            except Exception:
+                pass
         self._animate(0.0, 1.0, duration=220)
 
     def _save_changes(self):
@@ -199,6 +298,73 @@ class CustomerDetailWidget(QWidget):
                     pass
         self._enter_edit_mode(False)
 
+    def _on_delete_clicked(self):
+        cid = getattr(self, "_current_id", None)
+        if cid is None:
+            return
+        name = self._name.text() or ""
+        res = QMessageBox.question(
+            self,
+            "Delete",
+            f"Delete customer '{name}'? This action cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if res != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            # emit signal with id
+            try:
+                self.customer_deleted.emit(int(cid))
+            except Exception:
+                if self._deleted_callback:
+                    try:
+                        self._deleted_callback(int(cid))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    def _validate_fields(self) -> bool:
+        """Simple validation: name and address are required and at least 3 chars."""
+        try:
+            name = (self._name_edit.text() or "").strip()
+            address = (self._address_edit.text() or "").strip()
+            valid = True
+            # name validation
+            if not name:
+                self._name_err.setText("Name is required")
+                self._name_err.setVisible(True)
+                valid = False
+            elif len(name) < 3:
+                self._name_err.setText("Name must be at least 3 characters")
+                self._name_err.setVisible(True)
+                valid = False
+            else:
+                self._name_err.setVisible(False)
+
+            # address validation
+            if not address:
+                self._address_err.setText("Address is required")
+                self._address_err.setVisible(True)
+                valid = False
+            elif len(address) < 3:
+                self._address_err.setText("Address must be at least 3 characters")
+                self._address_err.setVisible(True)
+                valid = False
+            else:
+                self._address_err.setVisible(False)
+            try:
+                self._save_btn.setEnabled(valid)
+            except Exception:
+                pass
+            return valid
+        except Exception:
+            try:
+                self._save_btn.setEnabled(False)
+            except Exception:
+                pass
+            return False
+
     def set_customer(self, cust):
         self._current_id = getattr(cust, "id", None) if cust else None
         if not cust:
@@ -206,11 +372,23 @@ class CustomerDetailWidget(QWidget):
             self._address.setText("")
             self._email.setText("")
             self._edit_btn.setEnabled(False)
+            # hide edit/delete when no customer is loaded
+            try:
+                self._edit_btn.setVisible(False)
+                self._delete_btn.setVisible(False)
+            except Exception:
+                pass
             return
         self._name.setText(getattr(cust, "name", ""))
         self._address.setText(getattr(cust, "address", ""))
         self._email.setText(getattr(cust, "email", ""))
         self._edit_btn.setEnabled(True)
+        # make edit visible and show delete when there is a persisted id
+        try:
+            self._edit_btn.setVisible(True)
+            self._delete_btn.setVisible(self._current_id is not None)
+        except Exception:
+            pass
 
     def edit_button(self):
         return self._edit_btn

@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,8 +21,12 @@ jobs:
       - name: Install system packages for Qt (libEGL / libGL)
         # Needed for PySide6 on Ubuntu runners to provide libEGL/libGL
         run: |
+          # Update package lists and basic diagnostic info
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          lsb_release -a || cat /etc/os-release
+
+          # Install the essential 64-bit packages and Xvfb for headless runs
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             libgl1-mesa-glx \
             libegl1-mesa \
             libgbm1 \
@@ -30,7 +34,12 @@ jobs:
             libx11-xcb1 \
             libxkbcommon0 \
             libxkbcommon-x11-0 \
-            libxcb-xinerama0
+            libxcb-xinerama0 \
+            xvfb || true
+          # refresh linker cache
+          sudo ldconfig || true
+
+      # Debug steps removed — environment now relies on installed 64-bit Mesa + Xvfb
 
       - name: Export Qt offscreen env (headless)
         run: echo "QT_QPA_PLATFORM=offscreen" >> $GITHUB_ENV
@@ -48,4 +57,11 @@ jobs:
         run: uv run poe lint
 
       - name: Tests (poe tests)
-        run: uv run poe tests
+        run: |
+          # Run tests under Xvfb to provide a virtual X server for Qt/PySide6
+          if command -v xvfb-run >/dev/null 2>&1; then
+            xvfb-run -s "-screen 0 1280x1024x24" uv run poe tests
+          else
+            echo "xvfb-run not found, running tests without Xvfb"
+            uv run poe tests
+          fi

@@ -1,4 +1,4 @@
-import sam_invoice.ui.customers_view as cv
+import sam_invoice.ui.customer_detail as cv
 
 
 def test_validate_empty_name():

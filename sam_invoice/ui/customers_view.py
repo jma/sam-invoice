@@ -83,11 +83,14 @@ class CustomersView(QWidget):
 
         btn_layout = QHBoxLayout()
         self.add_btn = QPushButton("Add")
+        self.delete_btn = QPushButton("Delete")
         self.edit_btn = QPushButton("Edit")
         self.edit_btn.setEnabled(False)
+        self.delete_btn.setEnabled(False)
         self.refresh_btn = QPushButton("Refresh")
         btn_layout.addStretch()
         btn_layout.addWidget(self.add_btn)
+        btn_layout.addWidget(self.delete_btn)
         btn_layout.addWidget(self.edit_btn)
         btn_layout.addWidget(self.refresh_btn)
         layout.addLayout(btn_layout)
@@ -97,6 +100,7 @@ class CustomersView(QWidget):
         self.search.textChanged.connect(self._apply_filter)
         # add / edit handlers
         self.add_btn.clicked.connect(self.on_add)
+        self.delete_btn.clicked.connect(self.on_delete)
         self.edit_btn.clicked.connect(self.on_edit)
 
         # enable edit button only when a row is selected
@@ -193,6 +197,7 @@ class CustomersView(QWidget):
         # enable edit if there is any selected row
         has = self.table.selectionModel().hasSelection()
         self.edit_btn.setEnabled(bool(has))
+        self.delete_btn.setEnabled(bool(has))
 
     def _get_selected_customer_id(self) -> int | None:
         sels = self.table.selectionModel().selectedRows()
@@ -253,6 +258,28 @@ class CustomersView(QWidget):
             else:
                 self.refresh()
 
+    def on_delete(self):
+        cid = self._get_selected_customer_id()
+        if cid is None:
+            QMessageBox.information(self, "Delete customer", "Please select a customer to delete.")
+            return
+        # confirm deletion
+        res = QMessageBox.question(
+            self,
+            "Delete",
+            f"Delete customer #{cid}? This action cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if res != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            crud.delete_customer(cid)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to delete customer: {e}")
+            return
+        # refresh table after deletion
+        self.refresh()
+
 
 class CustomerDialog(QDialog):
     """Simple dialog to create or edit a customer."""
@@ -267,6 +294,14 @@ class CustomerDialog(QDialog):
         self._name = QLineEdit(name)
         self._address = QLineEdit(address)
         self._email = QLineEdit(email)
+
+        # placeholders to guide the user
+        try:
+            self._name.setPlaceholderText("e.g. John Doe")
+            self._address.setPlaceholderText("e.g. 1 Wine St, Apt 2")
+            self._email.setPlaceholderText("e.g. name@example.com")
+        except Exception:
+            pass
 
         # validation labels shown under each input
         self._name_err = QLabel("")
