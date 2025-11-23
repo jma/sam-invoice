@@ -3,7 +3,7 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QMessageBox
 
-import sam_invoice.models.crud_product as crud
+from sam_invoice.models.crud_product import product_crud
 from sam_invoice.ui.base_widgets import BaseListView
 from sam_invoice.ui.product_detail import ProductDetailWidget
 
@@ -23,7 +23,7 @@ class ProductsView(BaseListView):
 
     def _search_function(self, query: str, limit: int):
         """Search function for products."""
-        rows = crud.search_products(query, limit=limit)
+        rows = product_crud.search(query, limit=limit)
         return sorted(rows, key=lambda a: (getattr(a, "reference", "") or "").lower())
 
     def _create_detail_widget(self):
@@ -34,7 +34,7 @@ class ProductsView(BaseListView):
 
     def _get_all_items(self):
         """Get all products."""
-        return crud.get_products()
+        return product_crud.get_all()
 
     def _format_list_item(self, product) -> str:
         """Format an product for display in the list."""
@@ -50,7 +50,7 @@ class ProductsView(BaseListView):
         try:
             if art_id:
                 # Update
-                crud.update_product(
+                product_crud.update(
                     art_id,
                     reference=data.get("reference"),
                     name=data.get("name"),
@@ -60,7 +60,7 @@ class ProductsView(BaseListView):
                 )
             else:
                 # Create
-                crud.create_product(
+                product_crud.create(
                     reference=data.get("reference"),
                     name=data.get("name"),
                     price=data.get("price"),
@@ -74,7 +74,7 @@ class ProductsView(BaseListView):
     def _on_deleted(self, art_id: int):
         """Callback when an product is deleted."""
         try:
-            crud.delete_product(art_id)
+            product_crud.delete(art_id)
             self.reload_items()
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to delete product: {e}")

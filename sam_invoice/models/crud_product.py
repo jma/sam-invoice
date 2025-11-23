@@ -2,116 +2,97 @@
 
 from sqlalchemy import func
 
-from . import database
+from .base_crud import BaseCRUD
+from .database import SessionLocal
 from .product import Product
 
 
-def create_product(
-    reference: str, name: str = None, price: float | None = None, stock: int | None = None, sold: int | None = None
-):
-    """Create a new product in the database."""
-    session = database.SessionLocal()
-    try:
-        prod = Product(reference=reference, name=name, price=price, stock=stock, sold=sold)
-        session.add(prod)
-        session.commit()
-        session.refresh(prod)
-        return prod
-    finally:
-        session.close()
+class ProductCRUD(BaseCRUD[Product]):
+    """CRUD operations for Product entities."""
 
+    def __init__(self):
+        super().__init__(Product)
 
-def get_products():
-    """Retrieve all products, sorted by reference."""
-    session = database.SessionLocal()
-    try:
-        return session.query(Product).order_by(func.lower(Product.reference)).all()
-    finally:
-        session.close()
+    def create(
+        self,
+        reference: str,
+        name: str = None,
+        price: float | None = None,
+        stock: int | None = None,
+        sold: int | None = None,
+    ) -> Product:
+        """Create a new product.
 
+        Args:
+            reference: Product reference
+            name: Product name (optional)
+            price: Product price (optional)
+            stock: Stock quantity (optional)
+            sold: Sold quantity (optional)
 
-def search_products(query: str, limit: int | None = None):
-    """Search for products by exact ID or partial match on reference/name.
+        Returns:
+            The created product
+        """
+        with SessionLocal() as session:
+            product = Product(reference=reference, name=name, price=price, stock=stock, sold=sold)
+            session.add(product)
+            session.commit()
+            session.refresh(product)
+            return product
 
-    Args:
-        query: Search text
-        limit: Maximum number of results (None = no limit)
+    def update(
+        self,
+        product_id: int,
+        reference: str = None,
+        name: str = None,
+        price: float = None,
+        stock: int = None,
+        sold: int = None,
+    ) -> Product | None:
+        """Update an existing product.
 
-    Returns:
-        List of matching Product objects
-    """
-    session = database.SessionLocal()
-    try:
-        q = (query or "").strip()
+        Args:
+            product_id: The product's ID
+            reference: New reference (optional)
+            name: New name (optional)
+            price: New price (optional)
+            stock: New stock quantity (optional)
+            sold: New sold quantity (optional)
 
-        # If no search query, return all products
-        if not q:
-            stmt = session.query(Product).order_by(func.lower(Product.reference))
-            return stmt.limit(limit).all() if limit else stmt.all()
+        Returns:
+            The updated product if found, None otherwise
+        """
+        with SessionLocal() as session:
+            product = session.query(Product).filter(Product.id == product_id).first()
+            if product:
+                if reference is not None:
+                    product.reference = reference
+                if name is not None:
+                    product.name = name
+                if price is not None:
+                    product.price = price
+                if stock is not None:
+                    product.stock = stock
+                if sold is not None:
+                    product.sold = sold
+                session.commit()
+                session.refresh(product)
+            return product
 
-        # Build search filters
-        filters = [
-            Product.reference.ilike(f"%{q}%"),
-            Product.name.ilike(f"%{q}%"),
+    def _get_search_filters(self, query: str) -> list:
+        """Get search filters for products.
+
+        Searches in: reference, name
+        """
+        return [
+            Product.reference.ilike(f"%{query}%"),
+            Product.name.ilike(f"%{query}%"),
         ]
 
-        # Add ID filter if search is numeric
-        try:
-            filters.append(Product.id == int(q))
-        except ValueError:
-            pass
-
-        # Execute search
-        from sqlalchemy import or_
-
-        stmt = session.query(Product).filter(or_(*filters)).order_by(func.lower(Product.reference))
-        return stmt.limit(limit).all() if limit else stmt.all()
-    finally:
-        session.close()
+    def _get_sort_field(self):
+        """Sort products by reference (case-insensitive)."""
+        return func.lower(Product.reference)
 
 
-def get_product_by_id(product_id: int):
-    """Retrieve a product by its ID."""
-    session = database.SessionLocal()
-    try:
-        return session.query(Product).filter(Product.id == product_id).first()
-    finally:
-        session.close()
-
-
-def update_product(
-    product_id: int, reference: str = None, name: str = None, price: float = None, stock: int = None, sold: int = None
-):
-    """Update information for an existing product."""
-    session = database.SessionLocal()
-    try:
-        prod = session.query(Product).filter(Product.id == product_id).first()
-        if prod:
-            if reference is not None:
-                prod.reference = reference
-            if name is not None:
-                prod.name = name
-            if price is not None:
-                prod.price = price
-            if stock is not None:
-                prod.stock = stock
-            if sold is not None:
-                prod.sold = sold
-            session.commit()
-            session.refresh(prod)
-        return prod
-    finally:
-        session.close()
-
-
-def delete_product(product_id: int):
-    """Delete a product from the database."""
-    session = database.SessionLocal()
-    try:
-        prod = session.query(Product).filter(Product.id == product_id).first()
-        if prod:
-            session.delete(prod)
-            session.commit()
-        return prod
-    finally:
-        session.close()
+# Create singleton instance
+product_crud = ProductCRUD()

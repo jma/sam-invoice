@@ -19,15 +19,18 @@ def test_db_load_fixtures_monkeypatch(monkeypatch):
         calls.append((name, address, email))
         return SimpleNamespace(id=idx, name=name)
 
-    # monkeypatch the create_customer used by the CLI
-    monkeypatch.setattr("sam_invoice.models.crud_customer.create_customer", fake_create_customer)
+    # monkeypatch the customer_crud.create used by the CLI
+    monkeypatch.setattr("sam_invoice.models.crud_customer.customer_crud.create", fake_create_customer)
 
     # run the CLI (uses default fixtures file in project)
     result = runner.invoke(cli_module.app, ["fixtures", "load-customers"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
-    # ensure the final summary mentions the number loaded
-    assert f"Loaded {len(calls)} customers" in result.output
+    # ensure the final summary mentions the number loaded (strip ANSI color codes)
+    import re
+
+    output_clean = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    assert f"Loaded {len(calls)} customers" in output_clean
     # check we loaded the expected number from fixtures file
     # by default the CLI uses `fixtures/customers.json` at the project root
     import json
@@ -71,8 +74,8 @@ def test_db_load_products_fixtures_monkeypatch(monkeypatch):
         calls.append((reference, name, price, stock, sold))
         return SimpleNamespace(id=idx, reference=reference)
 
-    # monkeypatch the create_product used by the CLI
-    monkeypatch.setattr("sam_invoice.models.crud_product.create_product", fake_create_product)
+    # monkeypatch the product_crud.create used by the CLI
+    monkeypatch.setattr("sam_invoice.models.crud_product.product_crud.create", fake_create_product)
 
     # run the CLI (uses default fixtures file in project)
     result = runner.invoke(cli_module.app, ["fixtures", "load-products"], catch_exceptions=False)

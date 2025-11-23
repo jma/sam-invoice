@@ -3,7 +3,7 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QMessageBox
 
-import sam_invoice.models.crud_customer as crud
+from sam_invoice.models.crud_customer import customer_crud
 from sam_invoice.ui.base_widgets import BaseListView
 from sam_invoice.ui.customer_detail import CustomerDetailWidget
 
@@ -23,7 +23,7 @@ class CustomerView(BaseListView):
 
     def _search_function(self, query: str, limit: int):
         """Search function for customers."""
-        rows = crud.search_customers(query, limit=limit)
+        rows = customer_crud.search(query, limit=limit)
         return sorted(rows, key=lambda c: (getattr(c, "name", "") or "").lower())
 
     def _create_detail_widget(self):
@@ -34,7 +34,7 @@ class CustomerView(BaseListView):
 
     def _get_all_items(self):
         """Get all customers."""
-        return crud.get_customers()
+        return customer_crud.get_all()
 
     def _format_list_item(self, customer) -> str:
         """Format a customer for display in the list."""
@@ -50,12 +50,12 @@ class CustomerView(BaseListView):
         try:
             if cust_id:
                 # Update
-                crud.update_customer(
+                customer_crud.update(
                     cust_id, name=data.get("name"), address=data.get("address"), email=data.get("email")
                 )
             else:
                 # Create
-                crud.create_customer(name=data.get("name"), address=data.get("address"), email=data.get("email"))
+                customer_crud.create(name=data.get("name"), address=data.get("address"), email=data.get("email"))
             self.reload_items()
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to save customer: {e}")
@@ -63,7 +63,7 @@ class CustomerView(BaseListView):
     def _on_deleted(self, cust_id: int):
         """Callback when a customer is deleted."""
         try:
-            crud.delete_customer(cust_id)
+            customer_crud.delete(cust_id)
             self.reload_items()
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to delete customer: {e}")

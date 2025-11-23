@@ -8,8 +8,8 @@ import typer
 from rich.console import Console
 from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 
-import sam_invoice.models.crud_customer as crud_customer
-import sam_invoice.models.crud_product as crud_product
+from sam_invoice.models.crud_customer import customer_crud
+from sam_invoice.models.crud_product import product_crud
 from sam_invoice.models.database import init_db, set_database_path
 
 console = Console()
@@ -82,7 +82,7 @@ def load_customers(
 
             try:
                 # Create customer (no duplicate check)
-                cust = crud_customer.create_customer(name=name, address=address, email=email)
+                cust = customer_crud.create(name=name, address=address, email=email)
                 if cust:
                     created += 1
                     progress.advance(task)
@@ -152,9 +152,7 @@ def load_products(
 
             try:
                 # Create product (no duplicate check)
-                product = crud_product.create_product(
-                    reference=reference, name=name, price=price, stock=stock, sold=sold
-                )
+                product = product_crud.create(reference=reference, name=name, price=price, stock=stock, sold=sold)
                 if product:
                     created += 1
                     progress.advance(task)
