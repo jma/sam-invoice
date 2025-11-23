@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -9,7 +10,7 @@ from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 
 import sam_invoice.models.crud_customer as crud_customer
 import sam_invoice.models.crud_product as crud_product
-from sam_invoice.models.database import init_db
+from sam_invoice.models.database import init_db, set_database_path
 
 console = Console()
 app = typer.Typer()
@@ -24,18 +25,28 @@ app.add_typer(fixtures_app, name="fixtures")
 
 
 @db_app.command("init")
-def initdb():
+def initdb(db_path: Annotated[Path, typer.Option("--db", help="Path to database file")] = None):
     """Initialize the SQLite database."""
+    if db_path:
+        set_database_path(db_path)
     init_db()
     typer.echo("Database initialized.")
 
 
 @fixtures_app.command("load-customers")
-def load_customers(path: Path = None, verbose: bool = True):
+def load_customers(
+    path: Annotated[Path, typer.Argument(help="Path to customers JSON file")] = None,
+    db_path: Annotated[Path, typer.Option("--db", help="Path to database file")] = None,
+    verbose: bool = True,
+):
     """Load customers from a JSON fixtures file into the database.
 
     Default file: `fixtures/customers.json` at project root.
     """
+    # Set database path if provided
+    if db_path:
+        set_database_path(db_path)
+
     # Determine fixtures file path
     if path is None:
         pkg_dir = Path(__file__).resolve().parent.parent
@@ -54,6 +65,7 @@ def load_customers(path: Path = None, verbose: bool = True):
 
     # Import with progress bar
     created = 0
+    errors = 0
     with Progress(
         TextColumn("{task.description}"),
         BarColumn(),
@@ -68,23 +80,41 @@ def load_customers(path: Path = None, verbose: bool = True):
             address = item.get("address")
             email = item.get("email")
 
-            # Create customer (no duplicate check)
-            cust = crud_customer.create_customer(name=name, address=address, email=email)
-            if cust:
-                created += 1
+            try:
+                # Create customer (no duplicate check)
+                cust = crud_customer.create_customer(name=name, address=address, email=email)
+                if cust:
+                    created += 1
+                    progress.advance(task)
+                    if verbose:
+                        console.print(f"Created customer {cust.id} - {cust.name}")
+                else:
+                    progress.advance(task)
+            except Exception as e:
+                errors += 1
                 progress.advance(task)
-                if verbose:
-                    console.print(f"Created customer {cust.id} - {cust.name}")
+                console.print(f"[yellow]Warning: Failed to create customer '{name}': {e}[/yellow]")
 
-    console.print(f"Loaded {created} customers from {path}", style="green")
+    if errors > 0:
+        console.print(f"Loaded {created} customers from {path} ({errors} errors)", style="yellow")
+    else:
+        console.print(f"Loaded {created} customers from {path}", style="green")
 
 
 @fixtures_app.command("load-products")
-def load_products(path: Path = None, verbose: bool = True):
+def load_products(
+    path: Annotated[Path, typer.Argument(help="Path to products JSON file")] = None,
+    db_path: Annotated[Path, typer.Option("--db", help="Path to database file")] = None,
+    verbose: bool = True,
+):
     """Load products from a JSON fixtures file into the database.
 
     Default file: `fixtures/products.json` at project root.
     """
+    # Set database path if provided
+    if db_path:
+        set_database_path(db_path)
+
     # Determine fixtures file path
     if path is None:
         pkg_dir = Path(__file__).resolve().parent.parent
@@ -103,6 +133,7 @@ def load_products(path: Path = None, verbose: bool = True):
 
     # Import with progress bar
     created = 0
+    errors = 0
     with Progress(
         TextColumn("{task.description}"),
         BarColumn(),
@@ -119,15 +150,27 @@ def load_products(path: Path = None, verbose: bool = True):
             stock = item.get("stock", 0)
             sold = item.get("sold", 0)
 
-            # Create product (no duplicate check)
-            product = crud_product.create_product(reference=reference, name=name, price=price, stock=stock, sold=sold)
-            if product:
-                created += 1
+            try:
+                # Create product (no duplicate check)
+                product = crud_product.create_product(
+                    reference=reference, name=name, price=price, stock=stock, sold=sold
+                )
+                if product:
+                    created += 1
+                    progress.advance(task)
+                    if verbose:
+                        console.print(f"Created product {product.id} - {product.reference}")
+                else:
+                    progress.advance(task)
+            except Exception as e:
+                errors += 1
                 progress.advance(task)
-                if verbose:
-                    console.print(f"Created product {product.id} - {product.reference}")
+                console.print(f"[yellow]Warning: Failed to create product '{reference}': {e}[/yellow]")
 
-    console.print(f"Loaded {created} products from {path}", style="green")
+    if errors > 0:
+        console.print(f"Loaded {created} products from {path} ({errors} errors)", style="yellow")
+    else:
+        console.print(f"Loaded {created} products from {path}", style="green")
 
 
 def main():

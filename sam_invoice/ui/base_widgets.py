@@ -53,6 +53,15 @@ class BaseDetailWidget(QWidget, metaclass=QABCMeta):
         self._current_id = None
         self._fields = {}  # Dict[str, tuple[ClickableLabel, QLineEdit, QLabel]]
 
+        # Set white background using QPalette
+        from PySide6.QtGui import QPalette
+
+        pal = QPalette()
+        pal.setColor(QPalette.Window, Qt.white)
+        pal.setColor(QPalette.Base, Qt.white)
+        self.setPalette(pal)
+        self.setAutoFillBackground(True)
+
         # === Avatar ===
         self._avatar = QLabel()
         self._avatar.setFixedSize(96, 96)
@@ -60,7 +69,7 @@ class BaseDetailWidget(QWidget, metaclass=QABCMeta):
 
         # Main layout
         content_layout = QHBoxLayout()
-        content_layout.setAlignment(Qt.AlignTop)
+        content_layout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
         # Left column: avatar
         self._left_col = QVBoxLayout()
@@ -71,6 +80,8 @@ class BaseDetailWidget(QWidget, metaclass=QABCMeta):
         icon_color = "#444444"
         self._edit_btn = QPushButton()
         self._edit_btn.setIcon(qta.icon("fa5s.edit", color=icon_color))
+        self._edit_btn.setIconSize(QSize(16, 16))
+        self._edit_btn.setFixedSize(32, 32)
         self._edit_btn.setToolTip("Edit")
         self._edit_btn.setEnabled(False)
         self._left_col.addWidget(self._edit_btn, alignment=Qt.AlignHCenter)
@@ -83,12 +94,18 @@ class BaseDetailWidget(QWidget, metaclass=QABCMeta):
         # Action buttons (except edit which is under avatar)
         self._save_btn = QPushButton()
         self._save_btn.setIcon(qta.icon("fa5s.save", color=icon_color))
+        self._save_btn.setIconSize(QSize(16, 16))
+        self._save_btn.setFixedSize(32, 32)
         self._save_btn.setToolTip("Save")
         self._delete_btn = QPushButton()
         self._delete_btn.setIcon(qta.icon("fa5s.trash", color=icon_color))
+        self._delete_btn.setIconSize(QSize(16, 16))
+        self._delete_btn.setFixedSize(32, 32)
         self._delete_btn.setToolTip("Delete")
         self._cancel_btn = QPushButton()
         self._cancel_btn.setIcon(qta.icon("fa5s.times", color=icon_color))
+        self._cancel_btn.setIconSize(QSize(16, 16))
+        self._cancel_btn.setFixedSize(32, 32)
         self._cancel_btn.setToolTip("Cancel")
         self._save_btn.setVisible(False)
         self._save_btn.setEnabled(False)
@@ -101,10 +118,11 @@ class BaseDetailWidget(QWidget, metaclass=QABCMeta):
         self._actions_layout.addWidget(self._save_btn)
         self._actions_layout.addWidget(self._cancel_btn)
 
-        content_layout.addLayout(self._left_col, 1)
-        content_layout.addLayout(self._right_col, 3)
+        content_layout.addLayout(self._left_col, 0)
+        content_layout.addLayout(self._right_col, 0)
+        content_layout.addStretch()  # Add stretch to push content to the left
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(8, 8, 8, 8)
+        main_layout.setContentsMargins(40, 40, 40, 40)
         main_layout.addLayout(content_layout)
         main_layout.addStretch()  # Push content to top
 
@@ -227,6 +245,25 @@ class BaseDetailWidget(QWidget, metaclass=QABCMeta):
         """Validate fields (to be implemented in subclasses)."""
         pass
 
+    def clear(self):
+        """Clear all fields and reset to empty state."""
+        self._current_id = None
+
+        # Clear all field labels
+        for label, edit, error in self._fields.values():
+            label.setText("")
+            edit.clear()
+            error.setVisible(False)
+
+        # Disable buttons
+        self._edit_btn.setEnabled(False)
+        self._delete_btn.setEnabled(False)
+        self._save_btn.setVisible(False)
+        self._cancel_btn.setVisible(False)
+
+        # Exit edit mode
+        self._enter_edit_mode(False)
+
 
 class SearchWorker(QObject):
     """Worker that executes searches in a separate thread."""
@@ -281,7 +318,7 @@ class BaseListView(QWidget, metaclass=QABCMeta):
         self._search_timer.timeout.connect(self._perform_search)
 
         # Splitter to separate list and detail
-        splitter = QSplitter(Qt.Horizontal, self)
+        self._splitter = QSplitter(Qt.Horizontal, self)
 
         # === Left column: search and list ===
         left_widget = QWidget()
@@ -296,6 +333,7 @@ class BaseListView(QWidget, metaclass=QABCMeta):
 
         self._results_count_label = QLabel("")
         self._results_count_label.setStyleSheet("color: #666; font-size:11px; padding:4px 0;")
+        self._results_count_label.setAlignment(Qt.AlignRight)
 
         self._results_list = QListWidget()
         self._results_list.setSelectionMode(QListWidget.SingleSelection)
@@ -307,11 +345,20 @@ class BaseListView(QWidget, metaclass=QABCMeta):
         # === Right column: detail (to be created in subclasses) ===
         self._detail_widget = self._create_detail_widget()
 
+        # Create white container for detail widget
+        right_container = QWidget()
+        right_container.setStyleSheet("background-color: white;")
+        right_container_layout = QVBoxLayout(right_container)
+        right_container_layout.setContentsMargins(0, 0, 0, 0)
+        right_container_layout.addWidget(self._detail_widget)
+
         # Buttons under list (aligned to right: new then delete)
         list_buttons_layout = QHBoxLayout()
         list_buttons_layout.addStretch()
         self._add_btn = QPushButton()
         self._add_btn.setIcon(qta.icon("fa5s.plus", color=icon_color))
+        self._add_btn.setIconSize(QSize(16, 16))
+        self._add_btn.setFixedSize(32, 32)
         self._add_btn.setToolTip("New")
         list_buttons_layout.addWidget(self._add_btn)
         list_buttons_layout.addWidget(self._detail_widget._delete_btn)
@@ -319,18 +366,18 @@ class BaseListView(QWidget, metaclass=QABCMeta):
         left_layout.addLayout(list_buttons_layout)
 
         # Add widgets to splitter
-        splitter.addWidget(left_widget)
-        splitter.addWidget(self._detail_widget)
+        self._splitter.addWidget(left_widget)
+        self._splitter.addWidget(right_container)
 
         # Set fixed initial size for left column and allow resizing
-        splitter.setStretchFactor(0, 0)  # Left column doesn't stretch
-        splitter.setStretchFactor(1, 1)  # Right column takes remaining space
-        splitter.setSizes([300, 500])  # Initial size: 300px for list, 500px for detail
+        self._splitter.setStretchFactor(0, 0)  # Left column doesn't stretch
+        self._splitter.setStretchFactor(1, 1)  # Right column takes remaining space
+        self._splitter.setSizes([300, 500])  # Initial size: 300px for list, 500px for detail
 
         # Main layout
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.addWidget(splitter)
+        main_layout.addWidget(self._splitter)
 
         # === Signal connections ===
         self._detail_widget.item_saved.connect(self._on_saved)
@@ -447,7 +494,9 @@ class BaseListView(QWidget, metaclass=QABCMeta):
             if first_item:
                 self._on_item_activated(first_item)
         elif self._results_list.count() == 0:
-            # No item: disable delete button
+            # No item: clear detail widget and disable delete button
+            if hasattr(self._detail_widget, "clear"):
+                self._detail_widget.clear()
             self._detail_widget._delete_btn.setEnabled(False)
 
     @abstractmethod

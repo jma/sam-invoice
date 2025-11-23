@@ -16,8 +16,9 @@ dependencies = [
 dev = [
     "ipython>=8.0.0",
     "poethepoet>=0.24.4",
-    "typer>=0.9.0",
+    "pyinstaller>=6.0.0",
     "rich>=13.0.0",
+    "typer>=0.9.0",
 ]
 
 [tool.ruff]
@@ -48,6 +49,7 @@ tests = {cmd = "pytest", help = "Tests"}
 check = {sequence = ["format", "lint", "tests"], help = "Runs format, lint and tests"}
 fix = {sequence = ["lint-fix", "format-fix"], help = "Fixes linting issues and formats code"}
 run = {cmd = "python ./sam_invoice/app.py -style macOS", help = "Run the application"}
+build = {cmd = "python tools/build_macos.py", help = "Build macOS application bundle"}
 
 [project.scripts]
 sam-invoice = "sam_invoice.cli:main"

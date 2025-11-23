@@ -29,8 +29,7 @@ class CustomerView(BaseListView):
     def _create_detail_widget(self):
         """Create the customer detail widget."""
         detail = CustomerDetailWidget(self)
-        detail.customer_saved.connect(self._on_saved)
-        detail.customer_deleted.connect(self._on_deleted)
+        # Signals are already connected in BaseListView.__init__
         return detail
 
     def _get_all_items(self):
